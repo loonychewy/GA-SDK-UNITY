@@ -1,9 +1,5 @@
 ﻿using UnityEngine;
-#if (UNITY_4_7 || UNITY_4_6)
 using Unity.IO.Compression;
-#else
-using System.IO.Compression;
-#endif
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -47,6 +43,7 @@ namespace GameAnalyticsSDK.Wrapper
 		private static ArrayList _availableResourceCurrenciesValues = null;
 		private static ArrayList _availableResourceItemTypesValues = null;
 		private static HashSet<string> _progressionEventsStarted = new HashSet<string>();
+		private static List<Hashtable> _preInitEvents = new List<Hashtable>();
 		// Queue for events to be sent
 		private static List<string> _eventQueue = new List<string>();
 		// Queue for events that are sent but pending response from GameAnalytics
@@ -108,6 +105,7 @@ namespace GameAnalyticsSDK.Wrapper
 						_initialiseDefaultAnnotations();
 						_sessionStartEvent();
 						_startSendEventsTimer();
+						_addPreInitEvents();
 					}
 				}
 			}
@@ -159,6 +157,16 @@ namespace GameAnalyticsSDK.Wrapper
 				}
 			}
 			_addEvent(progressionEventData);
+		}
+
+		private static void _addPreInitEvents()
+		{
+			for (int eventIndex = 0; eventIndex < _preInitEvents.Count; eventIndex++)
+			{
+				Hashtable eventData = _preInitEvents[eventIndex];
+				_addEvent(eventData);
+			}
+			_preInitEvents.Clear();
 		}
 
 		#endregion
@@ -516,17 +524,26 @@ namespace GameAnalyticsSDK.Wrapper
 
 		private static void _addEvent(Hashtable eventData)
 		{
-			// Add timestamp
-			eventData["client_ts"] = _getClientTimestampNow();
-			// Combine with default annotations
-			foreach (DictionaryEntry entry in _defaultAnnotations)
+			if (_isEnabled)
 			{
-				eventData[entry.Key] = entry.Value;
-			}
+				// Add timestamp
+				eventData["client_ts"] = _getClientTimestampNow();
+				// Combine with default annotations
+				foreach (DictionaryEntry entry in _defaultAnnotations)
+				{
+					eventData[entry.Key] = entry.Value;
+				}
 
-			// Convert to string and add to the queue
-			string eventDataJson = GA_MiniJSON.JsonEncode(eventData);
-			_eventQueue.Add(eventDataJson);
+				// Convert to string and add to the queue
+				string eventDataJson = GA_MiniJSON.JsonEncode(eventData);
+				_eventQueue.Add(eventDataJson);
+			}
+			else
+			{
+				// Do a copy because the input event is reused for all events
+				Hashtable eventCopy = eventData.Clone() as Hashtable;
+				_preInitEvents.Add(eventCopy);
+			}
 
 			// Clear the hashtable so that it can be reused
 			eventData.Clear();
@@ -1001,7 +1018,7 @@ namespace GameAnalyticsSDK.Wrapper
 				message : message.Substring(0, 8192);
 
 			Hashtable errorEventData = _helperHashTable;
-			errorEventData.Add("category", "business");
+			errorEventData.Add("category", "error");
 			errorEventData.Add("severity", severityString);
 			errorEventData.Add("message", messageToSend);
 			_addEvent(errorEventData);
