@@ -37,6 +37,7 @@ namespace GameAnalyticsSDK.Wrapper
 		private static string _engine_version = "";
 		private static string _build = "";
 		private static string _sessionId = null;
+		private static string _customUserId = null;
 		private static ArrayList _customDimension1Values = null;
 		private static ArrayList _customDimension2Values = null;
 		private static ArrayList _customDimension3Values = null;
@@ -402,7 +403,14 @@ namespace GameAnalyticsSDK.Wrapper
 
 		private static string _getUserId()
 		{
-			return SystemInfo.deviceUniqueIdentifier;
+			if (!string.IsNullOrEmpty(_customUserId))
+			{
+				return _customUserId;
+			}
+			else
+			{
+				return SystemInfo.deviceUniqueIdentifier;
+			}
 		}
 
 		private static string _getManufacturer()
@@ -858,6 +866,11 @@ namespace GameAnalyticsSDK.Wrapper
 			if (_canLogDebug)
 			{
 				_logInfo("configureUserId(" + userId + ")");
+			}
+			_customUserId = userId;
+			if (_isEnabled)
+			{
+				_defaultAnnotations["user_id"] = userId;
 			}
 		}
 
